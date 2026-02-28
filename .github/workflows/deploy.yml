@@ -1,0 +1,72 @@
+name: Deploy GenAI Microservices
+on:
+  push:
+    branches: [ main ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  REPO_NAME: my-genai-repo
+
+jobs:
+  # --- STAGE 1: DEPLOY RESEARCHER & WRITER ---
+  deploy-nodes:
+    runs-on: ubuntu-latest
+    outputs:
+      researcher_url: ${{ steps.deploy-res.outputs.url }}
+      writer_url: ${{ steps.deploy-wri.outputs.url }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Deploy Researcher
+      - id: deploy-res
+        name: Deploy Researcher
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: researcher-service
+          source: ./researcher
+          region: ${{ env.REGION }}
+          flags: '--allow-unauthenticated'
+
+      # Deploy Writer
+      - id: deploy-wri
+        name: Deploy Writer
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: writer-service
+          source: ./writer
+          region: ${{ env.REGION }}
+          flags: '--allow-unauthenticated'
+          # We also inject your Gemini API Key here
+          env_vars: GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+
+  # --- STAGE 2: DEPLOY ORCHESTRATOR WITH DYNAMIC URLS ---
+  deploy-orchestrator:
+    needs: deploy-nodes # This makes sure Stage 1 finishes first
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy Orchestrator
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: orchestrator-service
+          source: ./orchestrator
+          region: ${{ env.REGION }}
+          flags: '--allow-unauthenticated'
+          # THE MAPPING: This is how the URLs reach your Python code!
+          env_vars: |
+            RESEARCHER_URL=${{ needs.deploy-nodes.outputs.researcher_url }}
+            WRITER_URL=${{ needs.deploy-nodes.outputs.writer_url }}

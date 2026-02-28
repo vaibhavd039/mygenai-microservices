@@ -10,6 +10,8 @@ load_dotenv()
 load_dotenv("../.env")
 
 app = FastAPI()
+RESEARCHER_URL = os.getenv("RESEARCHER_URL")
+WRITER_URL = os.getenv("WRITER_URL")
 
 class GraphState(TypedDict, total=False):
     topic: str
@@ -18,14 +20,14 @@ class GraphState(TypedDict, total=False):
 
 def call_researcher(state: GraphState):
     print("--- Calling Researcher (8001) ---")
-    response = requests.post("http://127.0.0.1:8001/research", json=state)
+    response = requests.post(f"{RESEARCHER_URL}/research", json=state)
     if response.status_code != 200:
         raise Exception(f"Researcher Error: {response.text}")
     return response.json()
 
 def call_writer(state: GraphState):
     print("--- Calling Writer (8002) ---")
-    response = requests.post("http://127.0.0.1:8002/write", json=state)
+    response = requests.post(f"{WRITER_URL}/write", json=state)
     if response.status_code != 200:
         raise Exception(f"Writer Error: {response.text}")
     return response.json()
@@ -55,4 +57,5 @@ async def run_agent(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
