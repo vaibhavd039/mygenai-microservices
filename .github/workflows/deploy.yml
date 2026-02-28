@@ -70,3 +70,4 @@ jobs:
           env_vars: |
             RESEARCHER_URL=${{ needs.deploy-nodes.outputs.researcher_url }}
             WRITER_URL=${{ needs.deploy-nodes.outputs.writer_url }}
+            
