@@ -28,16 +28,18 @@ class GraphState(TypedDict, total=False):
     draft: str
 
 def call_researcher(state: GraphState):
-    print("--- Calling Researcher (8001) ---")
+    logging.info("--- Calling Researcher (8001) ---")
     response = requests.post(f"{RESEARCHER_URL}/research", json=state)
     if response.status_code != 200:
+        logging.error(f"Researcher Error: {response.text}")
         raise Exception(f"Researcher Error: {response.text}")
     return response.json()
 
 def call_writer(state: GraphState):
-    print("--- Calling Writer (8002) ---")
+    logging.info("--- Calling Writer (8002) ---")
     response = requests.post(f"{WRITER_URL}/write", json=state)
     if response.status_code != 200:
+        logging.error(f"Writer Error: {response.text}")
         raise Exception(f"Writer Error: {response.text}")
     return response.json()
 
