@@ -61,7 +61,11 @@ jobs:
           image: ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/writer:latest
           region: ${{ env.REGION }}
           flags: --allow-unauthenticated
-          env_vars: GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          env_vars: |-
+            LANGCHAIN_API_KEY=${{ secrets.LANGCHAIN_API_KEY }}
+            LANGCHAIN_TRACING_V2=true
+            LANGCHAIN_PROJECT=${{ secrets.LANGCHAIN_PROJECT }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
   # --- STAGE 2: BUILD+DEPLOY ORCHESTRATOR WITH DYNAMIC URLS ---
   deploy-orchestrator:
@@ -98,3 +102,7 @@ jobs:
           env_vars: |
             RESEARCHER_URL=${{ needs.deploy-nodes.outputs.researcher_url }}
             WRITER_URL=${{ needs.deploy-nodes.outputs.writer_url }}
+            LANGCHAIN_API_KEY=${{ secrets.LANGCHAIN_API_KEY }}
+            LANGCHAIN_TRACING_V2=true
+            LANGCHAIN_PROJECT=${{ secrets.LANGCHAIN_PROJECT }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
