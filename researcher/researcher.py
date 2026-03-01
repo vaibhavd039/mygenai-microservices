@@ -9,7 +9,7 @@ async def research_task(state: dict):
     try:
         topic = state.get("topic", "AI")
         # Adding some logic to ensure state is updated correctly
-        state["research_notes"] = f"Deep research on {topic}: Microservices allow independent scaling of LLM nodes."
+        state["research_notes"] = f"Deep research on {topic}"
         print(f"SUCCESS: Researcher processed {topic}")
         return state
     except Exception as e:
