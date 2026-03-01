@@ -4,3 +4,4 @@ requests
 langgraph
 langchain-google-genai
 python-dotenv
+google-cloud-logging
