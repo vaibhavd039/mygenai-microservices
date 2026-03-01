@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 import logging
 import google.cloud.logging
+from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 load_dotenv("../.env")
@@ -21,6 +22,7 @@ client.setup_logging()
 app = FastAPI()
 RESEARCHER_URL = os.getenv("RESEARCHER_URL")
 WRITER_URL = os.getenv("WRITER_URL")
+Instrumentator().instrument(app).expose(app)
 
 class GraphState(TypedDict, total=False):
     topic: str
