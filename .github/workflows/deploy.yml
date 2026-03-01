@@ -7,14 +7,16 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
   REPO_NAME: my-genai-repo
+  AR_HOST: us-central1-docker.pkg.dev
 
 jobs:
-  # --- STAGE 1: DEPLOY RESEARCHER & WRITER ---
+  # --- STAGE 1: BUILD+DEPLOY RESEARCHER & WRITER ---
   deploy-nodes:
     runs-on: ubuntu-latest
     outputs:
       researcher_url: ${{ steps.deploy-res.outputs.url }}
       writer_url: ${{ steps.deploy-wri.outputs.url }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -24,32 +26,48 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Deploy Researcher
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
+
+      # ---- Researcher: build & push ----
+      - name: Build & Push Researcher
+        run: |
+          docker build -t ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/researcher:latest ./researcher
+          docker push ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/researcher:latest
+
       - id: deploy-res
         name: Deploy Researcher
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: researcher-service
-          source: ./researcher
+          image: ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/researcher:latest
           region: ${{ env.REGION }}
-          flags: '--allow-unauthenticated'
+          flags: --allow-unauthenticated
 
-      # Deploy Writer
+      # ---- Writer: build & push ----
+      - name: Build & Push Writer
+        run: |
+          docker build -t ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/writer:latest ./writer
+          docker push ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/writer:latest
+
       - id: deploy-wri
         name: Deploy Writer
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: writer-service
-          source: ./writer
+          image: ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/writer:latest
           region: ${{ env.REGION }}
-          flags: '--allow-unauthenticated'
-          # We also inject your Gemini API Key here
+          flags: --allow-unauthenticated
           env_vars: GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
 
-  # --- STAGE 2: DEPLOY ORCHESTRATOR WITH DYNAMIC URLS ---
+  # --- STAGE 2: BUILD+DEPLOY ORCHESTRATOR WITH DYNAMIC URLS ---
   deploy-orchestrator:
-    needs: deploy-nodes # This makes sure Stage 1 finishes first
+    needs: deploy-nodes
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -59,15 +77,24 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
+
+      - name: Build & Push Orchestrator
+        run: |
+          docker build -t ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/orchestrator:latest ./orchestrator
+          docker push ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/orchestrator:latest
+
       - name: Deploy Orchestrator
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: orchestrator-service
-          source: ./orchestrator
+          image: ${{ env.AR_HOST }}/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/orchestrator:latest
           region: ${{ env.REGION }}
-          flags: '--allow-unauthenticated'
-          # THE MAPPING: This is how the URLs reach your Python code!
+          flags: --allow-unauthenticated
           env_vars: |
             RESEARCHER_URL=${{ needs.deploy-nodes.outputs.researcher_url }}
             WRITER_URL=${{ needs.deploy-nodes.outputs.writer_url }}
-            
